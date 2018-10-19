@@ -1,0 +1,39 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Aug 27 12:28:50 2018
+
+@author: Marvos
+"""
+
+import numpy as np
+import scipy.signal as sig
+import sounddevice as sd
+import matplotlib.pyplot as plt
+import timeit
+
+sd.default.device = 12
+
+stopMargin = 0.944308390022676  #tempo de pausa entre o começo e o final do sweep     
+fs = 44100  # frequência de amostragem
+T = 5  # tamanho do sinal de excitação em segundos
+Tr = 2  # tempo esperado de resposta do sistema
+F = np.array([ 10 , 21500 ]); # vetor com a frequência inicial e final do sweep
+
+t = np.linspace(0, T, T*fs) # vetor de tempo com 0 to T / T*fs pontos
+x = sig.chirp(t, F[0], T, F[1], 'logarithmic', phi=90) # sweep (time_vector, init_freq, final_time, final_freq, 'linear', phase offset)
+x = 0.9 * x / np.max(np.abs(x)) # normalização
+
+xt = np.concatenate((np.zeros(round(0.3*stopMargin*fs)),
+                     x, np.zeros(round(0.7*stopMargin*fs)))) # sinal de excitação com pausa
+start = timeit.timeit()
+y = sd.playrec(xt, fs,  
+                   input_mapping=[1], output_mapping=[1])#, device=12) # (excitation signal, freq_resolution, number of input channels, default sound device )
+end = timeit.timeit()
+
+td = end-start
+yt = y[:,0] # primeiro canal do sinal medido 
+sd.wait() 
+yt = np.squeeze(yt) # transformação de um vetor linha em um vetor coluna
+
+filename = ("medisom")
+np.savez(filename,fs=fs,T = T,t=t,x=x, xt = xt, y=y, yt = yt, start=start, end=end, td=td)
